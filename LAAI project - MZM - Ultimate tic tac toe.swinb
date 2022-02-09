@@ -1,0 +1,133 @@
+<div class="notebook">
+
+<div class="nb-cell markdown" name="md1">
+## Simple tic tac toe
+</div>
+
+<div class="nb-cell program" data-background="true" name="p1">
+% Show the tic tac toe board
+show([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
+    							write([D,E,F]),nl,
+    							write([G,H,I]),nl,nl.
+
+% Start game helpers
+selfgame :- game([b,b,b,b,b,b,b,b,b],x). %AI vs AI
+playo :- explain, playfrom([b,b,b,b,b,b,b,b,b]). %AI vs human
+explain :-
+  write('You play X by entering integer positions followed by a period.'),
+  nl,
+  show([1,2,3,4,5,6,7,8,9]).
+
+% Facts
+player(o).
+player(x).
+
+other(x,o). 
+other(o,x).
+
+% Terminal state terminal(Board, Winner)
+% Check on player(Player) avoids Winner = b
+terminal(Board, Player):- player(Player), win(Board, Player), !.
+terminal(Board, draw):- nomoves(Board).
+
+% Winning conditions:
+win(Board, Player) :- rowwin(Board, Player), !.
+win(Board, Player) :- colwin(Board, Player), !.
+win(Board, Player) :- diagwin(Board, Player), !.
+
+rowwin(Board, Player) :- Board = [Player,Player,Player,_,_,_,_,_,_].
+rowwin(Board, Player) :- Board = [_,_,_,Player,Player,Player,_,_,_].
+rowwin(Board, Player) :- Board = [_,_,_,_,_,_,Player,Player,Player].
+
+colwin(Board, Player) :- Board = [Player,_,_,Player,_,_,Player,_,_].
+colwin(Board, Player) :- Board = [_,Player,_,_,Player,_,_,Player,_].
+colwin(Board, Player) :- Board = [_,_,Player,_,_,Player,_,_,Player].
+
+diagwin(Board, Player) :- Board = [Player,_,_,_,Player,_,_,_,Player].
+diagwin(Board, Player) :- Board = [_,_,Player,_,Player,_,Player,_,_].
+
+
+% Move predicates
+play(Board, Player, Position, Newboard, Otherplayer) :-
+  	not(terminal(Board,_)),
+  	move(Board,Player, Position,  Newboard),
+  	other(Player,Otherplayer).
+
+move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
+move([A,b,C,D,E,F,G,H,I], Player, 2, [A,Player,C,D,E,F,G,H,I]).
+move([A,B,b,D,E,F,G,H,I], Player, 3, [A,B,Player,D,E,F,G,H,I]).
+move([A,B,C,b,E,F,G,H,I], Player, 4, [A,B,C,Player,E,F,G,H,I]).
+move([A,B,C,D,b,F,G,H,I], Player, 5, [A,B,C,D,Player,F,G,H,I]).
+move([A,B,C,D,E,b,G,H,I], Player, 6, [A,B,C,D,E,Player,G,H,I]).
+move([A,B,C,D,E,F,b,H,I], Player, 7, [A,B,C,D,E,F,Player,H,I]).
+move([A,B,C,D,E,F,G,b,I], Player, 8, [A,B,C,D,E,F,G,Player,I]).
+move([A,B,C,D,E,F,G,H,b], Player, 9, [A,B,C,D,E,F,G,H,Player]).
+
+nomoves(Board):- not(member(b, Board)).
+
+legalmoves(Board, _, []):- nomoves(Board), !.
+legalmoves(Board, Player, [Pos|L]):- 
+    move(Board, Player, Pos, Newboard),
+    legalmoves(Newboard, Player, L), !.
+</div>
+
+<div class="nb-cell query" name="q1">
+
+</div>
+
+<div class="nb-cell markdown" name="md2">
+## Ultimate tic-tac toe
+</div>
+
+<div class="nb-cell program" name="p2">
+
+</div>
+
+<div class="nb-cell markdown" name="md4">
+## Heuristic
+</div>
+
+<div class="nb-cell program" data-background="true" name="p4">
+eval(Player, [_, Board], Val):- Val is 0.
+</div>
+
+<div class="nb-cell markdown" name="md3">
+## MinMax
+</div>
+
+<div class="nb-cell program" name="p3">
+legalstates(_, _, [], []):- !.
+
+legalstates(Board, Player, [Pos|PosList], [[Pos, NewBoard] | StateList]):-
+    move(Board, Player, Pos, NewBoard),
+    legalstates(Board, Player, PosList, StateList).
+
+children([_, Board], Player, Children):-
+    legalmoves(Board, Player, PosList),
+	legalstates(Board, Player, PosList, Children), !.
+
+
+minimax(Player, Node, BestNode, Val) :-
+	children(Node, Player, Children), 
+	best(Player, Children, BestNode, Val), !;
+	eval(Player, Node, Val), !.
+
+best(Player, [Node], Node, Val) :-
+	minimax(Player, Node, _, Val).
+
+best(Player, [Node1| NodeList], BestNode, BestVal):-
+	minimax(Player, Node1, _, Val1),
+	best(Player, NodeList, Node2, Val2),
+	betterof(Node1, Val1, Node2, Val2, BestNode, BestVal).
+
+betterof(Node1, Val1, _, Val2, Node1, Val1) :-
+  min_to_move(Node1), Val1 &gt; Val2, !;
+  max_to_move(Node1), Val1 &lt; Val2, !.
+
+betterof(_, _, Node2, Val2, Node2, Val2).
+
+min_to_move(_).
+max_to_move(_).
+</div>
+
+</div>
