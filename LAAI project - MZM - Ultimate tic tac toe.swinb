@@ -48,10 +48,10 @@ diagwin(Board, Player) :- Board = [_,_,Player,_,Player,_,Player,_,_].
 
 
 % Move predicates
-play(Board, Player, Position, Newboard, Otherplayer) :-
+play(Board, Player, Position, NewBoard, NewPlayer) :-
   	not(terminal(Board,_)),
-  	move(Board,Player, Position,  Newboard),
-  	other(Player,Otherplayer).
+  	move(Board,Player, Position,  NewBoard),
+  	other(Player, NewPlayer).
 
 move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
 move([A,b,C,D,E,F,G,H,I], Player, 2, [A,Player,C,D,E,F,G,H,I]).
@@ -64,11 +64,6 @@ move([A,B,C,D,E,F,G,b,I], Player, 8, [A,B,C,D,E,F,G,Player,I]).
 move([A,B,C,D,E,F,G,H,b], Player, 9, [A,B,C,D,E,F,G,H,Player]).
 
 nomoves(Board):- not(member(b, Board)).
-
-legalmoves(Board, _, []):- nomoves(Board), !.
-legalmoves(Board, Player, [Pos|L]):- 
-    move(Board, Player, Pos, Newboard),
-    legalmoves(Newboard, Player, L), !.
 </div>
 
 <div class="nb-cell query" name="q1">
@@ -88,46 +83,63 @@ legalmoves(Board, Player, [Pos|L]):-
 </div>
 
 <div class="nb-cell program" data-background="true" name="p4">
-eval(Player, [_, Board], Val):- Val is 0.
+eval(Player, [_, Board], Val):- Val is 1.
 </div>
 
 <div class="nb-cell markdown" name="md3">
 ## MinMax
 </div>
 
-<div class="nb-cell program" name="p3">
-legalstates(_, _, [], []):- !.
+<div class="nb-cell program" data-background="true" name="p3">
+set_current_player(Player):- b_setval(player, Player).
+current_player(Player):- b_getval(player, Player).
 
-legalstates(Board, Player, [Pos|PosList], [[Pos, NewBoard] | StateList]):-
-    move(Board, Player, Pos, NewBoard),
-    legalstates(Board, Player, PosList, StateList).
+% Change player while traversing
+player_color(max, Player):- current_player(Player).
+player_color(min, Other):- 
+    current_player(Player),
+    other(Player, Other).
 
+swap_max_min(min, max).
+swap_max_min(max, min).
+
+% children(+Node, +Player, -Children)
 children([_, Board], Player, Children):-
-    legalmoves(Board, Player, PosList),
-	legalstates(Board, Player, PosList, Children), !.
+    findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
+
+minimax(Board, BestMove):-
+    minimax_step(max, [nil, Board], [BestMove, _], _), !.
+
+% Chooses the best possible move for the current board.
+% minimax_step(+MinMax, + Node, -BestNode, -BestValue)
+minimax_step(MinMax, Node, BestNode, BestValue) :-
+    player_color(MinMax, Player),
+	children(Node, Player, Children),
+    best_node(MinMax, Children, BestNode, BestValue), !.
+
+minimax_step(MinMax, Node, _, BestValue) :-
+    player_color(MinMax, Player),
+    eval(Player, Node, BestValue).
+
+% best_node(+MinMax, +NodeList, -BestNode, -BestValue)
+best_node(MinMax, [Node], Node, BestValue) :-   
+	swap_max_min(MinMax, Other),
+	minimax_step(Other, Node, _, BestValue).
+best_node(MinMax, [Node | NodeList], BestNode, BestValue) :-    
+	swap_max_min(MinMax, Other),
+	minimax_step(Other, Node, _, BottomBestV),
+	best_node(MinMax, NodeList, CurrentBestN, CurrentBestV),
+	best_of(MinMax, Node, BottomBestV, CurrentBestN, CurrentBestV, BestNode, BestValue).
+
+% best_of(+MinMax, +MoveA, +ValueA, +MoveB, +ValueB, -BetterMove, -BetterValue)
+% Chooses the move with the higher value.
+best_of(MaxMin, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
+	MaxMin = max, ValueA &gt;= ValueB, !;
+    MaxMin = min, ValueA =&lt; ValueB, !.
+best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
 
 
-minimax(Player, Node, BestNode, Val) :-
-	children(Node, Player, Children), 
-	best(Player, Children, BestNode, Val), !;
-	eval(Player, Node, Val), !.
 
-best(Player, [Node], Node, Val) :-
-	minimax(Player, Node, _, Val).
-
-best(Player, [Node1| NodeList], BestNode, BestVal):-
-	minimax(Player, Node1, _, Val1),
-	best(Player, NodeList, Node2, Val2),
-	betterof(Node1, Val1, Node2, Val2, BestNode, BestVal).
-
-betterof(Node1, Val1, _, Val2, Node1, Val1) :-
-  min_to_move(Node1), Val1 &gt; Val2, !;
-  max_to_move(Node1), Val1 &lt; Val2, !.
-
-betterof(_, _, Node2, Val2, Node2, Val2).
-
-min_to_move(_).
-max_to_move(_).
 </div>
 
 </div>
