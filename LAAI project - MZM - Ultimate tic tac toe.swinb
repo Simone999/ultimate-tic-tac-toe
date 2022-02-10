@@ -18,6 +18,9 @@ explain :-
   nl,
   show([1,2,3,4,5,6,7,8,9]).
 
+set_current_player(Player):- b_setval(player, Player).
+current_player(Player):- b_getval(player, Player).
+
 % Facts
 player(o).
 player(x).
@@ -27,8 +30,9 @@ other(o,x).
 
 % Terminal state terminal(Board, Winner)
 % Check on player(Player) avoids Winner = b
-terminal(Board, Player):- player(Player), win(Board, Player), !.
-terminal(Board, draw):- nomoves(Board).
+% terminal_state(+Board, -Player)
+terminal_state(Board, Player):- player(Player), win(Board, Player), !.
+terminal_state(Board, draw):- nomoves(Board).
 
 % Winning conditions:
 win(Board, Player) :- rowwin(Board, Player), !.
@@ -75,25 +79,25 @@ nomoves(Board):- not(member(b, Board)).
 </div>
 
 <div class="nb-cell program" name="p2">
-
+max: v &gt;= beta =&gt; taglia
+min: v &lt;= alpha =&gt; taglia
 </div>
 
 <div class="nb-cell markdown" name="md4">
-## Heuristic
+## Evaluation function
 </div>
 
 <div class="nb-cell program" data-background="true" name="p4">
-eval(Player, [_, Board], Val):- Val is 1.
+eval(Player, [_, Board], 1):- terminal_state(Board, P), P = Player, !.
+eval(_, [_, Board], 0):- terminal_state(Board, P), P = draw, !.
+eval(_, [_, Board], -1):- terminal_state(Board, _).
 </div>
 
 <div class="nb-cell markdown" name="md3">
 ## MinMax
 </div>
 
-<div class="nb-cell program" data-background="true" name="p3">
-set_current_player(Player):- b_setval(player, Player).
-current_player(Player):- b_getval(player, Player).
-
+<div class="nb-cell program" name="p3">
 % Change player while traversing
 player_color(max, Player):- current_player(Player).
 player_color(min, Other):- 
@@ -112,14 +116,15 @@ minimax(Board, BestMove):-
 
 % Chooses the best possible move for the current board.
 % minimax_step(+MinMax, + Node, -BestNode, -BestValue)
+minimax_step(_, [Move, Board], _, BestValue) :-
+    terminal_state(Board, _),
+    current_player(MaxPlayer),
+    eval(MaxPlayer, [Move, Board], BestValue), !.
+
 minimax_step(MinMax, Node, BestNode, BestValue) :-
     player_color(MinMax, Player),
 	children(Node, Player, Children),
     best_node(MinMax, Children, BestNode, BestValue), !.
-
-minimax_step(MinMax, Node, _, BestValue) :-
-    player_color(MinMax, Player),
-    eval(Player, Node, BestValue).
 
 % best_node(+MinMax, +NodeList, -BestNode, -BestValue)
 best_node(MinMax, [Node], Node, BestValue) :-   
@@ -137,9 +142,70 @@ best_of(MaxMin, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
 	MaxMin = max, ValueA &gt;= ValueB, !;
     MaxMin = min, ValueA =&lt; ValueB, !.
 best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
+</div>
 
+<div class="nb-cell markdown" name="md5">
+## Alpha-Beta
+</div>
 
+<div class="nb-cell program" name="p5">
+% Change player while traversing
+player_color(max, Player):- current_player(Player).
+player_color(min, Other):- 
+    current_player(Player),
+    other(Player, Other).
 
+swap_max_min(min, max).
+swap_max_min(max, min).
+
+% children(+Node, +Player, -Children)
+children([_, Board], Player, Children):-
+    findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
+
+alphabeta(Board, BestMove, BestValue):-
+    alphabeta_step(max, [nil, Board], -1000, +1000, [BestMove, _], BestValue), !.
+
+% Chooses the best possible move for the current board.
+% minimax_step(+MinMax, + Node, +Alpha, +Beta, -BestNode, -BestValue)
+alphabeta_step(_, [Move, Board], _, _, _, BestValue) :-
+    terminal_state(Board, _),
+    current_player(MaxPlayer),
+    eval(MaxPlayer, [Move, Board], BestValue), !.
+
+alphabeta_step(MinMax, Node, Alpha, Beta, BestNode, BestValue) :-
+    player_color(MinMax, Player),
+	children(Node, Player, Children),
+    bounded_best_node(MinMax, Children, Alpha, Beta, BestNode, BestValue), !.
+
+% bounded_best_node(+MinMax, +NodeList, +Alpha, +Beta, -BestNode, -BestValue)
+bounded_best_node(MinMax, [Node | NodeList], Alpha, Beta, BestNode, BestValue) :-    
+	swap_max_min(MinMax, Other),
+	alphabeta_step(Other, Node, Alpha, Beta, _, BottomBestV),
+    next_if_good(MinMax, NodeList, Alpha, Beta, Node, BottomBestV, BestNode, BestValue).
+
+% next_if_good(+MinMax, +NodeList, +Alpha, +Beta, +Node, +Value, +BestNode, +BestValue)
+next_if_good(_, [], _, _, Node, Value, Node, Value):- !.
+% if not good enough -&gt; cutoff
+next_if_good(MinMax, NodeList, Alpha, Beta, _, Value, BestNode, BestValue):-
+	MinMax = max, Value &gt;= Beta, !;
+    MinMax = min, Value &lt;= Alpha, !.
+% otherwise go to the next node
+next_if_good(MinMax, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
+	update_bounds(MinMax, Alpha, Beta, Value, NewAlpha, NewBeta),
+    bounded_best_node(MinMax, NodeList, NewAlpha, NewBeta, CurrentBestN, CurrentBestV),
+    best_of(MinMax, Node, Value, CurrentBestN, CurrentBestV, BestNode, BestValue).
+
+%update_bounds(+MinMax, +Alpha, +Beta, +Value, -NewAlpha, -NewBeta)
+update_bounds(max, Alpha, Beta, Value, Value, Beta):-
+    Value &gt; Alpha, !.
+update_bounds(min, Alpha, Beta, Value, Alpha, Beta):-
+    Value &lt; Beta, !.
+update_bounds(_, Alpha, Beta, _, Alpha, Beta).
+
+best_of(MinMax, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
+	MinMax = max, ValueA &gt;= ValueB, !;
+    MinMax = min, ValueA =&lt; ValueB, !.
+best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
 </div>
 
 </div>
