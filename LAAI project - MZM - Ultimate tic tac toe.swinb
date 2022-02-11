@@ -31,7 +31,7 @@ start_game(Game, Player1Type, Player2Type):-
     set_player_type(o, Player2Type),
     
     explain_tic_tac_toe,
-    play_game(Game).
+    play_game(Game), !.
 
 play_game(tic_tac_toe):-
     Board = [b, b, b, b, b, b, b, b, b],
@@ -42,7 +42,7 @@ play_game(tic_tac_toe):-
 tic_tac_toe(Board, _):- 
     terminal_state(Board, Winner),    
     show_miniboard(Board),
-    write(Winner), write(' wins !'), !.
+    show_win_message(Winner), !.
 
 tic_tac_toe(Board, Player):-
     show_miniboard(Board),
@@ -54,6 +54,10 @@ tic_tac_toe(Board, Player):-
     
     other(Player, OtherPlayer),
     tic_tac_toe(NewBoard, OtherPlayer).
+
+show_win_message(draw):- write('It \' a draw !'), !.
+show_win_message(Winner):- 
+    write(Winner), write(' wins !').
 
 % play_as(+PlayerType, +Board, -Move)
 play_as(human, Board, Move):-
