@@ -1,26 +1,86 @@
 <div class="notebook">
 
+<div class="nb-cell markdown" name="md6">
+## Game settings
+</div>
+
+<div class="nb-cell program" data-background="true" name="p6">
+player_type(ai).
+player_type(human).
+
+game(tic_tac_toe).
+
+% set_player_type(+Player, +PlayerType)
+set_player_type(Player, PlayerType):- 
+    player(Player),
+    player_type(PlayerType),
+    b_setval(Player, PlayerType).
+
+% get_player_type(+Player, -PlayerType)
+get_player_type(Player, PlayerType):-
+    b_getval(Player, PlayerType).
+
+% set_current_player(+Player)
+set_current_player(Player):- b_setval(player, Player).
+% current_player(-Player)
+current_player(Player):- b_getval(player, Player).
+
+start_game(Game, Player1Type, Player2Type):-
+    game(tic_tac_toe),
+    set_player_type(x, Player1Type),
+    set_player_type(o, Player2Type),
+    
+    explain_tic_tac_toe,
+    play_game(Game).
+
+play_game(tic_tac_toe):-
+    Board = [b, b, b, b, b, b, b, b, b],
+    Player = x,
+	tic_tac_toe(Board, Player).
+
+% tic_tac_toe(+Board, +Player)
+tic_tac_toe(Board, _):- 
+    terminal_state(Board, Winner),    
+    show_miniboard(Board),
+    write(Winner), write(' wins !'), !.
+
+tic_tac_toe(Board, Player):-
+    show_miniboard(Board),
+    set_current_player(Player),
+    get_player_type(Player, PlayerType),
+    
+    play_as(PlayerType, Board, Move),
+  	move(Board, Player, Move, NewBoard),
+    
+    other(Player, OtherPlayer),
+    tic_tac_toe(NewBoard, OtherPlayer).
+
+% play_as(+PlayerType, +Board, -Move)
+play_as(human, Board, Move):-
+    read(InputMove),
+    validate_move(Board, InputMove, Move).
+
+play_as(ai, Board, Move):-
+    alphabeta(Board, Move).
+
+% validate_move(+Board, +Move, -ValidMove)
+validate_move(Board, Move, Move):-
+    move(Board, _, Move, _),!.
+validate_move(Board, _, ValidMove):-
+    write('Illegal move !'),
+    play_as(human, Board, ValidMove).
+
+explain_tic_tac_toe :-
+  write('You play by entering integer positions followed by a period.'),
+  nl,
+  show_miniboard([1,2,3,4,5,6,7,8,9]).
+</div>
+
 <div class="nb-cell markdown" name="md1">
 ## Simple tic tac toe
 </div>
 
 <div class="nb-cell program" data-background="true" name="p1">
-% Show the tic tac toe board
-show([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
-    							write([D,E,F]),nl,
-    							write([G,H,I]),nl,nl.
-
-% Start game helpers
-%selfgame :- game([b,b,b,b,b,b,b,b,b],x). %AI vs AI
-%playo :- explain, playfrom([b,b,b,b,b,b,b,b,b]). %AI vs human
-explain :-
-  write('You play X by entering integer positions followed by a period.'),
-  nl,
-  show([1,2,3,4,5,6,7,8,9]).
-
-set_current_player(Player):- b_setval(player, Player).
-current_player(Player):- b_getval(player, Player).
-
 % Facts
 player(o).
 player(x).
@@ -57,6 +117,7 @@ play(Board, Player, Position, NewBoard, NewPlayer) :-
   	move(Board,Player, Position, NewBoard),
   	other(Player, NewPlayer).
 
+% move(+Board, +Player, +Position, -NewBoard)
 move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
 move([A,b,C,D,E,F,G,H,I], Player, 2, [A,Player,C,D,E,F,G,H,I]).
 move([A,B,b,D,E,F,G,H,I], Player, 3, [A,B,Player,D,E,F,G,H,I]).
@@ -68,6 +129,11 @@ move([A,B,C,D,E,F,G,b,I], Player, 8, [A,B,C,D,E,F,G,Player,I]).
 move([A,B,C,D,E,F,G,H,b], Player, 9, [A,B,C,D,E,F,G,H,Player]).
 
 nomoves(Board):- not(member(b, Board)).
+
+% Show the tic tac toe board
+show_miniboard([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
+    							write([D,E,F]),nl,
+    							write([G,H,I]),nl,nl.
 </div>
 
 <div class="nb-cell query" name="q1">
@@ -163,7 +229,7 @@ best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
 ## Alpha-Beta
 </div>
 
-<div class="nb-cell program" name="p5">
+<div class="nb-cell program" data-background="true" name="p5">
 % Change player while traversing
 player_color(max, Player):- current_player(Player).
 player_color(min, Other):- 
