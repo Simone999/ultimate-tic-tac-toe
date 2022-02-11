@@ -11,8 +11,8 @@ show([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
     							write([G,H,I]),nl,nl.
 
 % Start game helpers
-selfgame :- game([b,b,b,b,b,b,b,b,b],x). %AI vs AI
-playo :- explain, playfrom([b,b,b,b,b,b,b,b,b]). %AI vs human
+%selfgame :- game([b,b,b,b,b,b,b,b,b],x). %AI vs AI
+%playo :- explain, playfrom([b,b,b,b,b,b,b,b,b]). %AI vs human
 explain :-
   write('You play X by entering integer positions followed by a period.'),
   nl,
@@ -53,8 +53,8 @@ diagwin(Board, Player) :- Board = [_,_,Player,_,Player,_,Player,_,_].
 
 % Move predicates
 play(Board, Player, Position, NewBoard, NewPlayer) :-
-  	not(terminal(Board,_)),
-  	move(Board,Player, Position,  NewBoard),
+  	not(terminal_state(Board,_)),
+  	move(Board,Player, Position, NewBoard),
   	other(Player, NewPlayer).
 
 move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
@@ -71,7 +71,10 @@ nomoves(Board):- not(member(b, Board)).
 </div>
 
 <div class="nb-cell query" name="q1">
-
+Board =  [o, x, o,
+          b, x, x,
+          x, b, b],
+show(Board)
 </div>
 
 <div class="nb-cell markdown" name="md2">
@@ -79,8 +82,11 @@ nomoves(Board):- not(member(b, Board)).
 </div>
 
 <div class="nb-cell program" name="p2">
-max: v &gt;= beta =&gt; taglia
-min: v &lt;= alpha =&gt; taglia
+
+</div>
+
+<div class="nb-cell query" name="q2">
+
 </div>
 
 <div class="nb-cell markdown" name="md4">
@@ -88,9 +94,18 @@ min: v &lt;= alpha =&gt; taglia
 </div>
 
 <div class="nb-cell program" data-background="true" name="p4">
+% eval(+Player, +Node, -Val)
 eval(Player, [_, Board], 1):- terminal_state(Board, P), P = Player, !.
 eval(_, [_, Board], 0):- terminal_state(Board, P), P = draw, !.
 eval(_, [_, Board], -1):- terminal_state(Board, _).
+</div>
+
+<div class="nb-cell query" name="q3">
+Player = x,
+Board =  [o, x, o,
+          b, x, x,
+          x, x, b],
+eval(Player, [nil, Board], V).
 </div>
 
 <div class="nb-cell markdown" name="md3">
@@ -155,15 +170,16 @@ player_color(min, Other):-
     current_player(Player),
     other(Player, Other).
 
-swap_max_min(min, max).
 swap_max_min(max, min).
+swap_max_min(min, max).
 
 % children(+Node, +Player, -Children)
 children([_, Board], Player, Children):-
     findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
 
-alphabeta(Board, BestMove, BestValue):-
-    alphabeta_step(max, [nil, Board], -1000, +1000, [BestMove, _], BestValue), !.
+% alphabeta(+Board, -BestMove)
+alphabeta(Board, BestMove):-
+    alphabeta_step(max, [nil, Board], -1000, +1000, [BestMove, _], _), !.
 
 % Chooses the best possible move for the current board.
 % minimax_step(+MinMax, + Node, +Alpha, +Beta, -BestNode, -BestValue)
@@ -183,12 +199,12 @@ bounded_best_node(MinMax, [Node | NodeList], Alpha, Beta, BestNode, BestValue) :
 	alphabeta_step(Other, Node, Alpha, Beta, _, BottomBestV),
     next_if_good(MinMax, NodeList, Alpha, Beta, Node, BottomBestV, BestNode, BestValue).
 
-% next_if_good(+MinMax, +NodeList, +Alpha, +Beta, +Node, +Value, +BestNode, +BestValue)
+% next_if_good(+MinMax, +NodeList, +Alpha, +Beta, +Node, +Value, -BestNode, -BestValue)
 next_if_good(_, [], _, _, Node, Value, Node, Value):- !.
 % if not good enough -&gt; cutoff
-next_if_good(MinMax, NodeList, Alpha, Beta, _, Value, BestNode, BestValue):-
+next_if_good(MinMax, _, Alpha, Beta, Node, Value, Node, Value):-
 	MinMax = max, Value &gt;= Beta, !;
-    MinMax = min, Value &lt;= Alpha, !.
+    MinMax = min, Value =&lt; Alpha, !.
 % otherwise go to the next node
 next_if_good(MinMax, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
 	update_bounds(MinMax, Alpha, Beta, Value, NewAlpha, NewBeta),
@@ -197,15 +213,22 @@ next_if_good(MinMax, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
 
 %update_bounds(+MinMax, +Alpha, +Beta, +Value, -NewAlpha, -NewBeta)
 update_bounds(max, Alpha, Beta, Value, Value, Beta):-
-    Value &gt; Alpha, !.
+    Value &gt;= Alpha, !.
 update_bounds(min, Alpha, Beta, Value, Alpha, Beta):-
-    Value &lt; Beta, !.
+    Value =&lt; Beta, !.
 update_bounds(_, Alpha, Beta, _, Alpha, Beta).
 
 best_of(MinMax, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
 	MinMax = max, ValueA &gt;= ValueB, !;
     MinMax = min, ValueA =&lt; ValueB, !.
 best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
+</div>
+
+<div class="nb-cell query" name="q4">
+Player = x,
+Board =  [o, x, o,
+          b, x, x,
+          x, b, b]
 </div>
 
 </div>
