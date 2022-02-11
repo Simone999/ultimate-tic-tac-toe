@@ -92,11 +92,23 @@ player(x).
 other(x,o). 
 other(o,x).
 
+board(Board):-
+    length(Board, 9),
+    valid_board_values(Board), !.
+
+valid_board_values([]):- !.
+valid_board_values([X|L]):-
+    cell_value(X), !,
+    valid_board_values(L).
+
+cell_value(b):- !.
+cell_value(P):- player(P), !.
+
 % Terminal state terminal(Board, Winner)
-% Check on player(Player) avoids Winner = b
 % terminal_state(+Board, -Player)
-terminal_state(Board, Player):- player(Player), win(Board, Player), !.
-terminal_state(Board, draw):- nomoves(Board).
+% Check on player(Player) avoids Winner = b
+terminal_state(Board, Player):- board(Board), player(Player), win(Board, Player), !.
+terminal_state(Board, draw):- board(Board), nomoves(Board), !.
 
 % Winning conditions:
 win(Board, Player) :- rowwin(Board, Player), !.
@@ -121,6 +133,7 @@ play(Board, Player, Position, NewBoard, NewPlayer) :-
   	move(Board,Player, Position, NewBoard),
   	other(Player, NewPlayer).
 
+
 % move(+Board, +Player, +Position, -NewBoard)
 move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
 move([A,b,C,D,E,F,G,H,I], Player, 2, [A,Player,C,D,E,F,G,H,I]).
@@ -144,19 +157,69 @@ show_miniboard([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
 Board =  [o, x, o,
           b, x, x,
           x, b, b],
-show(Board)
+show_miniboard(Board)
 </div>
 
 <div class="nb-cell markdown" name="md2">
 ## Ultimate tic-tac toe
 </div>
 
-<div class="nb-cell program" name="p2">
+<div class="nb-cell program" data-background="true" name="p2">
+:- multifile move/4.
+:- multifile terminal_state/2.
+:- multifile cell_value/1.
 
+cell_value(draw).
+
+terminal_state(GameField, Winner):- 
+    nth1(10, GameField, Globalboard),
+    terminal_state(Globalboard, Winner), !.
+
+
+move(GameField, Player, [GlobalPos,LocalPos], NewGameField):-
+    %pick Miniboard
+    nth1(GlobalPos, GameField, Miniboard),
+    %pick Globalboard
+    nth1(10, GameField, Globalboard),
+    % empty golbalboard cell
+    nth1(GlobalPos, Globalboard, b),
+    % valid move
+    move(Miniboard, Player, LocalPos, NewMiniboard), !,
+    % update miniboard
+	replace(GameField, GlobalPos, NewMiniboard, GameField1),
+    %pick miniboard state
+    board_state(NewMiniboard, State),
+    %update globalboard
+    %replace(Globalboard, GlobalPos, State, NewGlobalboard),
+    move(Globalboard, State, GlobalPos, NewGlobalboard), !,
+    %update gamefield
+    replace(GameField1, 10, NewGlobalboard, NewGameField).
+    
+%replace(+List, +Index, +NewElem, -NewList)         
+replace([_|T], 1, X, [X|T]):- !.
+replace([H|T], I, X, [H|R]):- I &gt; 0, I1 is I-1, replace(T, I1, X, R).
+
+%board_state(+Board, -State)
+board_state(Board, State):-
+    terminal_state(Board, State), !.
+board_state(_, b).
+
+init(L):- init_field(L, [b, b, b, b, b, b, b, b, b]). 
+
+init_field([],_).
+
+init_field([X|T], Emptyboard):-
+    X = Emptyboard,
+    init_field(T, Emptyboard).
 </div>
 
 <div class="nb-cell query" name="q2">
-
+GameField = [B1,B2,B3,B4,B5,B6,B7,B8,B9,G],
+init(GameField),
+replace(GameField, 10,  [x,x,x,
+                         o,draw,x,
+                         x,o,o], GF),
+terminal_state(GF, W).
 </div>
 
 <div class="nb-cell markdown" name="md4">
