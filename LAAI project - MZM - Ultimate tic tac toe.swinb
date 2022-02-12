@@ -41,11 +41,11 @@ play_game(tic_tac_toe):-
 % tic_tac_toe(+Board, +Player)
 tic_tac_toe(Board, _):- 
     terminal_state(Board, Winner),    
-    show_miniboard(Board),
+    print_tictactoe_board(Board),
     show_win_message(Winner), !.
 
 tic_tac_toe(Board, Player):-
-    show_miniboard(Board),
+    print_tictactoe_board(Board),
     set_current_player(Player),
     get_player_type(Player, PlayerType),
     
@@ -77,7 +77,7 @@ validate_move(Board, _, ValidMove):-
 explain_tic_tac_toe :-
   write('You play by entering integer positions followed by a period.'),
   nl,
-  show_miniboard([1,2,3,4,5,6,7,8,9]).
+  print_tictactoe_board([1,2,3,4,5,6,7,8,9]).
 </div>
 
 <div class="nb-cell markdown" name="md1">
@@ -146,18 +146,13 @@ move([A,B,C,D,E,F,G,b,I], Player, 8, [A,B,C,D,E,F,G,Player,I]).
 move([A,B,C,D,E,F,G,H,b], Player, 9, [A,B,C,D,E,F,G,H,Player]).
 
 nomoves(Board):- not(member(b, Board)).
-
-% Show the tic tac toe board
-show_miniboard([A,B,C,D,E,F,G,H,I]) :- write([A,B,C]),nl,
-    							write([D,E,F]),nl,
-    							write([G,H,I]),nl,nl.
 </div>
 
 <div class="nb-cell query" name="q1">
 Board =  [o, x, o,
           b, x, x,
           x, b, b],
-show_miniboard(Board)
+print_tictactoe_board(Board)
 </div>
 
 <div class="nb-cell markdown" name="md2">
@@ -211,6 +206,91 @@ init_field([],_).
 init_field([X|T], Emptyboard):-
     X = Emptyboard,
     init_field(T, Emptyboard).
+
+</div>
+
+<div class="nb-cell markdown" name="md7">
+### Display boards
+</div>
+
+<div class="nb-cell program" data-background="true" name="p7">
+/* Drawing the Tic-Tac-Board */
+print_tictactoe_board([A1,A2,A3,A4,A5,A6,A7,A8,A9]) :-
+    print_board_line([A1, A2, A3]), nl,
+    print_line_separator,nl,
+    print_board_line([A4, A5, A6]),nl,
+    print_line_separator,nl,
+    print_board_line([A7, A8, A9]), !.
+
+print_vertical_line:-
+    format('   |   |   ').
+    
+print_line_separator :-
+    format('---|---|---').
+
+print_board_line([A, B, C]) :-
+    printable_value(A, A1),
+    printable_value(B, B1),
+    printable_value(C, C1),
+    format(' ~w | ~w | ~w ', [A1, B1, C1]).
+
+printable_value(x, x).
+printable_value(o, o).
+printable_value(b, ' ').
+printable_value(draw, d).
+
+/* Drawing the Ultimate Tic-Tac-Board */
+print_ultimate_board([B1,B2,B3,B4,B5,B6,B7,B8,B9,[G1, G2, G3, G4, G5, G6, G7, G8, G9]]) :-
+    print_boards([B1, B2, B3], [G1, G2, G3]), nl,
+	print_double_line_separator, nl,
+    
+    print_boards([B4, B5, B6], [G4, G5, G6]), nl,
+	print_double_line_separator, nl,
+    
+    print_boards([B7, B8, B9], [G7, G8, G9]), nl, !.
+
+print_boards(BoardLine, GlobalCells):-
+    print_boards(BoardLine, GlobalCells, 1).
+
+print_boards([[B11,B12,B13], [B21,B22,B23], [B31,B32,B33]],  [G1, G2, G3], 3):-
+    print_ultimate_board_line([B11,B12,B13], G1, 3), print_double_bar,
+    print_ultimate_board_line([B21,B22,B23], G2, 3), print_double_bar,
+    print_ultimate_board_line([B31,B32,B33], G3, 3), !.
+    
+print_boards([[B11,B12,B13|B1], [B21,B22,B23|B2], [B31,B32,B33|B3]], [G1, G2, G3], L):-
+    print_ultimate_board_line([B11,B12,B13], G1, L), print_double_bar,
+    print_ultimate_board_line([B21,B22,B23], G2, L), print_double_bar,
+    print_ultimate_board_line([B31,B32,B33], G3, L), nl,
+    
+    print_ultimate_line_separator(G1), print_double_bar, 
+    print_ultimate_line_separator(G2), print_double_bar,
+    print_ultimate_line_separator(G3), nl,
+	
+	L1 is L + 1,
+    
+    print_boards([B1, B2, B3], [G1, G2, G3], L1).
+
+% print_ultimate_board_line(+BoardLineCells, +GlobalCell, LineNumber)
+print_ultimate_board_line([A1,A2,A3], b, _):- 
+    print_board_line([A1,A2,A3]), !.
+
+print_ultimate_board_line(_, GlobalCell, 2):-
+    printable_value(GlobalCell, V),
+    string_upper(V, UpperChar),
+    format('     ~w     ', UpperChar), !.
+
+print_ultimate_board_line(_, _, _):- 
+    print_empty_line.
+
+% print_ultimate_line_separator(+GlobalCell)
+print_ultimate_line_separator(b):- print_line_separator, !.
+print_ultimate_line_separator(_):- print_empty_line.
+
+print_double_line_separator :-
+    format('═══════════════════════════════════════').
+
+print_empty_line:- format('           ').
+print_double_bar:- format(' ǁ ').
 </div>
 
 <div class="nb-cell query" name="q2">
