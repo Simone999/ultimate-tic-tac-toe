@@ -8,8 +8,6 @@
 player_type(ai).
 player_type(human).
 
-game(tic_tac_toe).
-
 % set_player_type(+Player, +PlayerType)
 set_player_type(Player, PlayerType):- 
     player(Player),
@@ -25,27 +23,33 @@ set_current_player(Player):- b_setval(player, Player).
 % current_player(-Player)
 current_player(Player):- b_getval(player, Player).
 
+game(tic_tac_toe).
+game(ultimate).
+
+init_board(tic_tac_toe, Board):- empty_board(Board), !.
+init_board(ultimate, GameField):- init_game_field(GameField), !.
+
 start_game(Game, Player1Type, Player2Type):-
-    game(tic_tac_toe),
+    game(Game),
     set_player_type(x, Player1Type),
     set_player_type(o, Player2Type),
     
-    explain_tic_tac_toe,
+    explain_game(Game),
     play_game(Game), !.
 
-play_game(tic_tac_toe):-
-    Board = [b, b, b, b, b, b, b, b, b],
+play_game(Game):-
+    init_board(Game, Board),
     Player = x,
-	tic_tac_toe(Board, Player).
+    play(Game, Board, Player), !.
 
-% tic_tac_toe(+Board, +Player)
-tic_tac_toe(Board, _):- 
+play(Game, Board, _):- 
     terminal_state(Board, Winner),    
-    print_tictactoe_board(Board),
+    print_board(Game, Board), nl,
     show_win_message(Winner), !.
 
-tic_tac_toe(Board, Player):-
-    print_tictactoe_board(Board),
+play(Game, Board, Player):-
+    write('Player\'s turn: '), write(Player), nl,
+    print_board(Game, Board), nl,
     set_current_player(Player),
     get_player_type(Player, PlayerType),
     
@@ -53,11 +57,7 @@ tic_tac_toe(Board, Player):-
   	move(Board, Player, Move, NewBoard),
     
     other(Player, OtherPlayer),
-    tic_tac_toe(NewBoard, OtherPlayer).
-
-show_win_message(draw):- write('It \' a draw !'), !.
-show_win_message(Winner):- 
-    write(Winner), write(' wins !').
+    play(Game, NewBoard, OtherPlayer).
 
 % play_as(+PlayerType, +Board, -Move)
 play_as(human, Board, Move):-
@@ -74,10 +74,21 @@ validate_move(Board, _, ValidMove):-
     write('Illegal move !'),
     play_as(human, Board, ValidMove).
 
-explain_tic_tac_toe :-
-  write('You play by entering integer positions followed by a period.'),
-  nl,
-  print_tictactoe_board([1,2,3,4,5,6,7,8,9]).
+explain_game(tic_tac_toe) :-
+  write('You play by entering integer positions.'),nl,
+  print_tic_tac_toe_board([1,2,3,4,5,6,7,8,9]), nl.
+
+explain_game(ultimate) :-
+    write('You play by entering a tuple [miniboard, miniboard\'s position].'), nl,
+    write('e.g. [1,2] -&gt; miniboard : 1, miniboard\'s position 2'), nl.
+
+
+print_board(tic_tac_toe, Board):- print_tic_tac_toe_board(Board), !.
+print_board(ultimate, Board):- print_ultimate_board(Board), !.
+
+show_win_message(draw):- write('It \' a draw !'), !.
+show_win_message(Winner):- 
+    write(Winner), write(' wins !').
 </div>
 
 <div class="nb-cell markdown" name="md1">
@@ -91,6 +102,9 @@ player(x).
 
 other(x,o). 
 other(o,x).
+
+empty_board(Board):-
+    Board = [b, b, b, b, b, b, b, b, b].
 
 board(Board):-
     length(Board, 9),
@@ -149,10 +163,7 @@ nomoves(Board):- not(member(b, Board)).
 </div>
 
 <div class="nb-cell query" name="q1">
-Board =  [o, x, o,
-          b, x, x,
-          x, b, b],
-print_tictactoe_board(Board)
+start_game(tic_tac_toe, ai, human).
 </div>
 
 <div class="nb-cell markdown" name="md2">
@@ -179,14 +190,14 @@ move(GameField, Player, [GlobalPos,LocalPos], NewGameField):-
     % empty golbalboard cell
     nth1(GlobalPos, Globalboard, b),
     % valid move
-    move(Miniboard, Player, LocalPos, NewMiniboard), !,
+    move(Miniboard, Player, LocalPos, NewMiniboard),
     % update miniboard
 	replace(GameField, GlobalPos, NewMiniboard, GameField1),
     %pick miniboard state
     board_state(NewMiniboard, State),
     %update globalboard
     %replace(Globalboard, GlobalPos, State, NewGlobalboard),
-    move(Globalboard, State, GlobalPos, NewGlobalboard), !,
+    move(Globalboard, State, GlobalPos, NewGlobalboard),
     %update gamefield
     replace(GameField1, 10, NewGlobalboard, NewGameField).
     
@@ -199,14 +210,21 @@ board_state(Board, State):-
     terminal_state(Board, State), !.
 board_state(_, b).
 
-init(L):- init_field(L, [b, b, b, b, b, b, b, b, b]). 
+% init_game_field(-GameField)
+init_game_field(GameField):- 
+    GameField = [_,_,_,_,_,_,_,_,_,_],
+    empty_board(EmptyBoard),
+    init_game_field(EmptyBoard, GameField), !.
 
-init_field([],_).
+init_game_field(_, []):- !.
+init_game_field(EmptyBoard, [X|T]):-
+    X = EmptyBoard,
+    init_game_field(EmptyBoard, T), !.
 
-init_field([X|T], Emptyboard):-
-    X = Emptyboard,
-    init_field(T, Emptyboard).
+</div>
 
+<div class="nb-cell query" name="q5">
+start_game(ultimate, ai, human).
 </div>
 
 <div class="nb-cell markdown" name="md7">
@@ -215,12 +233,12 @@ init_field([X|T], Emptyboard):-
 
 <div class="nb-cell program" data-background="true" name="p7">
 /* Drawing the Tic-Tac-Board */
-print_tictactoe_board([A1,A2,A3,A4,A5,A6,A7,A8,A9]) :-
+print_tic_tac_toe_board([A1,A2,A3,A4,A5,A6,A7,A8,A9]) :-
     print_board_line([A1, A2, A3]), nl,
     print_line_separator,nl,
     print_board_line([A4, A5, A6]),nl,
     print_line_separator,nl,
-    print_board_line([A7, A8, A9]), !.
+    print_board_line([A7, A8, A9]), nl, !.
 
 print_vertical_line:-
     format('   |   |   ').
@@ -229,15 +247,16 @@ print_line_separator :-
     format('---|---|---').
 
 print_board_line([A, B, C]) :-
-    printable_value(A, A1),
-    printable_value(B, B1),
-    printable_value(C, C1),
+    printable_value(A, A1), !,
+    printable_value(B, B1), !,
+    printable_value(C, C1), !,
     format(' ~w | ~w | ~w ', [A1, B1, C1]).
 
 printable_value(x, x).
 printable_value(o, o).
 printable_value(b, ' ').
 printable_value(draw, d).
+printable_value(V, V).
 
 /* Drawing the Ultimate Tic-Tac-Board */
 print_ultimate_board([B1,B2,B3,B4,B5,B6,B7,B8,B9,[G1, G2, G3, G4, G5, G6, G7, G8, G9]]) :-
