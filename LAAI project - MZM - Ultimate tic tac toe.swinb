@@ -220,7 +220,6 @@ init_game_field(_, []):- !.
 init_game_field(EmptyBoard, [X|T]):-
     X = EmptyBoard,
     init_game_field(EmptyBoard, T), !.
-
 </div>
 
 <div class="nb-cell query" name="q5">
@@ -314,7 +313,7 @@ print_double_bar:- format(' ǁ ').
 
 <div class="nb-cell query" name="q2">
 GameField = [B1,B2,B3,B4,B5,B6,B7,B8,B9,G],
-init(GameField),
+init_game_field(GameField),
 replace(GameField, 10,  [x,x,x,
                          o,draw,x,
                          x,o,o], GF),
@@ -327,9 +326,10 @@ terminal_state(GF, W).
 
 <div class="nb-cell program" data-background="true" name="p4">
 % eval(+Player, +Node, -Val)
-eval(Player, [_, Board], 1):- terminal_state(Board, P), P = Player, !.
+eval(Player, [_, Board], 100):- terminal_state(Board, P), P = Player, !.
 eval(_, [_, Board], 0):- terminal_state(Board, P), P = draw, !.
-eval(_, [_, Board], -1):- terminal_state(Board, _).
+eval(_, [_, Board], -100):- terminal_state(Board, _).
+eval(_,_,0).
 </div>
 
 <div class="nb-cell query" name="q3">
@@ -405,42 +405,47 @@ player_color(min, Other):-
 swap_max_min(max, min).
 swap_max_min(min, max).
 
+max_depth(5).
+
 % children(+Node, +Player, -Children)
 children([_, Board], Player, Children):-
     findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
 
 % alphabeta(+Board, -BestMove)
 alphabeta(Board, BestMove):-
-    alphabeta_step(max, [nil, Board], -1000, +1000, [BestMove, _], _), !.
+    max_depth(D),
+    alphabeta_step(max, D, [nil, Board], -1000, +1000, [BestMove, _], _), !.
 
 % Chooses the best possible move for the current board.
-% minimax_step(+MinMax, + Node, +Alpha, +Beta, -BestNode, -BestValue)
-alphabeta_step(_, [Move, Board], _, _, _, BestValue) :-
-    terminal_state(Board, _),
+% minimax_step(+MinMax, +MaxDepth, + Node, +Alpha, +Beta, -BestNode, -BestValue)
+alphabeta_step(_, Depth, Node, _, _, _, BestValue) :-
+    leaf_node(Depth, Node), !,
     current_player(MaxPlayer),
-    eval(MaxPlayer, [Move, Board], BestValue), !.
+    eval(MaxPlayer, Node, Value), !,
+    BestValue is Depth * Value.
 
-alphabeta_step(MinMax, Node, Alpha, Beta, BestNode, BestValue) :-
+alphabeta_step(MinMax, Depth, Node, Alpha, Beta, BestNode, BestValue) :-
     player_color(MinMax, Player),
 	children(Node, Player, Children),
-    bounded_best_node(MinMax, Children, Alpha, Beta, BestNode, BestValue), !.
+    NextDepth is Depth -1,
+    bounded_best_node(MinMax, NextDepth, Children, Alpha, Beta, BestNode, BestValue), !.
 
-% bounded_best_node(+MinMax, +NodeList, +Alpha, +Beta, -BestNode, -BestValue)
-bounded_best_node(MinMax, [Node | NodeList], Alpha, Beta, BestNode, BestValue) :-    
+% bounded_best_node(+MinMax, +MaxDepth, +NodeList, +Alpha, +Beta, -BestNode, -BestValue)
+bounded_best_node(MinMax, MaxDepth, [Node | NodeList], Alpha, Beta, BestNode, BestValue) :-    
 	swap_max_min(MinMax, Other),
-	alphabeta_step(Other, Node, Alpha, Beta, _, BottomBestV),
-    next_if_good(MinMax, NodeList, Alpha, Beta, Node, BottomBestV, BestNode, BestValue).
+	alphabeta_step(Other, MaxDepth, Node, Alpha, Beta, _, BottomBestV),
+    next_if_good(MinMax, MaxDepth, NodeList, Alpha, Beta, Node, BottomBestV, BestNode, BestValue).
 
-% next_if_good(+MinMax, +NodeList, +Alpha, +Beta, +Node, +Value, -BestNode, -BestValue)
-next_if_good(_, [], _, _, Node, Value, Node, Value):- !.
+% next_if_good(+MinMax, +MaxDepth, +NodeList, +Alpha, +Beta, +Node, +Value, -BestNode, -BestValue)
+next_if_good(_, _, [], _, _, Node, Value, Node, Value):- !.
 % if not good enough -&gt; cutoff
-next_if_good(MinMax, _, Alpha, Beta, Node, Value, Node, Value):-
+next_if_good(MinMax, _, _, Alpha, Beta, Node, Value, Node, Value):-
 	MinMax = max, Value &gt;= Beta, !;
     MinMax = min, Value =&lt; Alpha, !.
 % otherwise go to the next node
-next_if_good(MinMax, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
+next_if_good(MinMax, MaxDepth, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
 	update_bounds(MinMax, Alpha, Beta, Value, NewAlpha, NewBeta),
-    bounded_best_node(MinMax, NodeList, NewAlpha, NewBeta, CurrentBestN, CurrentBestV),
+    bounded_best_node(MinMax, MaxDepth, NodeList, NewAlpha, NewBeta, CurrentBestN, CurrentBestV),
     best_of(MinMax, Node, Value, CurrentBestN, CurrentBestV, BestNode, BestValue).
 
 %update_bounds(+MinMax, +Alpha, +Beta, +Value, -NewAlpha, -NewBeta)
@@ -454,13 +459,26 @@ best_of(MinMax, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
 	MinMax = max, ValueA &gt;= ValueB, !;
     MinMax = min, ValueA =&lt; ValueB, !.
 best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
+
+% leaf_node(+Depth, +Node).
+% It's a leaf node if depth = 0 or the game is over.
+leaf_node(0, _):- !.
+leaf_node(_, [_, Board]):- terminal_state(Board, _).
 </div>
 
 <div class="nb-cell query" name="q4">
 Player = x,
-Board =  [o, x, o,
-          b, x, x,
-          x, b, b]
+GameField = [B1,B2,B3,B4,B5,B6,B7,B8,B9,G],
+Board = [ x,o,x,
+          o,b,x,
+          b,o,b],
+set_current_player(Player),
+%init_game_field(, GameField),
+%replace(GameField, 10,  [x,o,x,
+%                         o,b,x,
+%                         x,o,o], GF),
+%trace,
+alphabeta(Board, M)
 </div>
 
 </div>
