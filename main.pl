@@ -1,0 +1,418 @@
+%%%%%%%%%%%%%% Game %%%%%%%%%%%%%%%%%
+player_type(ai).
+player_type(human).
+
+% set_player_type(+Player, +PlayerType)
+set_player_type(Player, PlayerType):- 
+    player(Player),
+    player_type(PlayerType),
+    b_setval(Player, PlayerType).
+
+% get_player_type(+Player, -PlayerType)
+get_player_type(Player, PlayerType):-
+    b_getval(Player, PlayerType).
+
+% set_current_player(+Player)
+set_current_player(Player):- b_setval(player, Player).
+% current_player(-Player)
+current_player(Player):- b_getval(player, Player).
+
+game(tic_tac_toe).
+game(ultimate).
+
+% max_depth(+Game, -MaxDepth)
+max_depth(tic_tac_toe, 99).
+max_depth(ultimate, 4).
+
+init_board(tic_tac_toe, Board):- empty_board(Board), !.
+init_board(ultimate, GameField):- init_game_field(GameField), !.
+
+start_game(Game, Player1Type, Player2Type):-
+    game(Game),
+    set_player_type(x, Player1Type),
+    set_player_type(o, Player2Type),
+    
+    explain_game(Game),
+    play_game(Game), !.
+
+play_game(Game):-
+    init_board(Game, Board),
+    Player = x,
+    play(Game, Board, Player), !.
+
+play(Game, Board, _):- 
+    terminal_state(Board, Winner),    
+    print_board(Game, Board), nl,
+    show_win_message(Winner), !.
+
+play(Game, Board, Player):-
+    print_board(Game, Board), nl,
+    write('Player\'s turn: '), write(Player), nl,
+    set_current_player(Player),
+    get_player_type(Player, PlayerType),
+    
+    play_as(PlayerType, Game, Board, Move), !,
+  	move(Board, Player, Move, NewBoard),
+    
+    other(Player, OtherPlayer),
+    play(Game, NewBoard, OtherPlayer).
+
+% play_as(+PlayerType, +Game, +Board, -Move)
+play_as(human, _, Board, Move):-
+    read_valid_move(Board, Move).
+play_as(ai, Game, Board, Move):-
+    max_depth(Game, MaxDepth), !,
+    alphabeta(MaxDepth, Board, Move).
+
+% read_valid_move(+Board, -ValidMove)
+read_valid_move(Board, ValidMove):-    
+    read(ValidMove),    
+    move(Board, _, ValidMove, _),!.
+read_valid_move(Board, ValidMove):- 
+    write('Illegal move !'),
+    read_valid_move(Board, ValidMove), !.
+
+explain_game(tic_tac_toe) :-
+  write('You play by entering integer positions.'),nl,
+  print_tic_tac_toe_board([1,2,3,4,5,6,7,8,9]), nl.
+
+explain_game(ultimate) :-
+    write('You play by entering a tuple [miniboard, miniboard\'s position].'), nl,
+    write('e.g. [1,2] -> miniboard : 1, miniboard\'s position 2'), nl.
+
+
+print_board(tic_tac_toe, Board):- print_tic_tac_toe_board(Board), !.
+print_board(ultimate, Board):- print_ultimate_board(Board), !.
+
+show_win_message(draw):- write('It \' a draw !'), !.
+show_win_message(Winner):- 
+    write(Winner), write(' wins !').
+
+%%%%%%%%%%%%%% Tic tac toe %%%%%%%%%%%%%%%
+% Facts
+player(o).
+player(x).
+
+other(x,o). 
+other(o,x).
+
+empty_board(Board):-
+    Board = [b, b, b, b, b, b, b, b, b].
+
+board(Board):-
+    length(Board, 9),
+    valid_board_values(Board), !.
+
+valid_board_values([]):- !.
+valid_board_values([X|L]):-
+    cell_value(X), !,
+    valid_board_values(L).
+
+cell_value(b):- !.
+cell_value(P):- player(P), !.
+
+% Terminal state terminal(Board, Winner)
+% terminal_state(+Board, -Player)
+% Check on player(Player) avoids Winner = b
+terminal_state(Board, Player):- board(Board), player(Player), win(Board, Player), !.
+terminal_state(Board, draw):- board(Board), nomoves(Board), !.
+
+% Winning conditions:
+win(Board, Player) :- rowwin(Board, Player), !.
+win(Board, Player) :- colwin(Board, Player), !.
+win(Board, Player) :- diagwin(Board, Player), !.
+
+rowwin(Board, Player) :- Board = [Player,Player,Player,_,_,_,_,_,_].
+rowwin(Board, Player) :- Board = [_,_,_,Player,Player,Player,_,_,_].
+rowwin(Board, Player) :- Board = [_,_,_,_,_,_,Player,Player,Player].
+
+colwin(Board, Player) :- Board = [Player,_,_,Player,_,_,Player,_,_].
+colwin(Board, Player) :- Board = [_,Player,_,_,Player,_,_,Player,_].
+colwin(Board, Player) :- Board = [_,_,Player,_,_,Player,_,_,Player].
+
+diagwin(Board, Player) :- Board = [Player,_,_,_,Player,_,_,_,Player].
+diagwin(Board, Player) :- Board = [_,_,Player,_,Player,_,Player,_,_].
+
+
+% Move predicates
+play(Board, Player, Position, NewBoard, NewPlayer) :-
+  	not(terminal_state(Board,_)),
+  	move(Board,Player, Position, NewBoard),
+  	other(Player, NewPlayer).
+
+
+% move(+Board, +Player, +Position, -NewBoard)
+move([b,B,C,D,E,F,G,H,I], Player, 1, [Player,B,C,D,E,F,G,H,I]).
+move([A,b,C,D,E,F,G,H,I], Player, 2, [A,Player,C,D,E,F,G,H,I]).
+move([A,B,b,D,E,F,G,H,I], Player, 3, [A,B,Player,D,E,F,G,H,I]).
+move([A,B,C,b,E,F,G,H,I], Player, 4, [A,B,C,Player,E,F,G,H,I]).
+move([A,B,C,D,b,F,G,H,I], Player, 5, [A,B,C,D,Player,F,G,H,I]).
+move([A,B,C,D,E,b,G,H,I], Player, 6, [A,B,C,D,E,Player,G,H,I]).
+move([A,B,C,D,E,F,b,H,I], Player, 7, [A,B,C,D,E,F,Player,H,I]).
+move([A,B,C,D,E,F,G,b,I], Player, 8, [A,B,C,D,E,F,G,Player,I]).
+move([A,B,C,D,E,F,G,H,b], Player, 9, [A,B,C,D,E,F,G,H,Player]).
+
+nomoves(Board):- not(member(b, Board)).
+
+%%%%%%%%%%%%%%%%%%% Ultimate %%%%%%%%%%%%%%%%%
+:- multifile move/4.
+:- multifile terminal_state/2.
+:- multifile cell_value/1.
+
+cell_value(draw).
+
+terminal_state(GameField, Winner):- 
+    nth1(10, GameField, Globalboard),
+    terminal_state(Globalboard, Winner), !.
+
+
+move(GameField, Player, [GlobalPos,LocalPos], NewGameField):-
+    %pick Miniboard
+    nth1(GlobalPos, GameField, Miniboard),
+    %pick Globalboard
+    nth1(10, GameField, Globalboard),
+    % empty golbalboard cell
+    nth1(GlobalPos, Globalboard, b),
+    % valid move
+    move(Miniboard, Player, LocalPos, NewMiniboard),
+    % update miniboard
+	replace(GameField, GlobalPos, NewMiniboard, GameField1),
+    %pick miniboard state
+    board_state(NewMiniboard, State),
+    %update globalboard
+    %replace(Globalboard, GlobalPos, State, NewGlobalboard),
+    move(Globalboard, State, GlobalPos, NewGlobalboard),
+    %update gamefield
+    replace(GameField1, 10, NewGlobalboard, NewGameField).
+    
+%replace(+List, +Index, +NewElem, -NewList)         
+replace([_|T], 1, X, [X|T]):- !.
+replace([H|T], I, X, [H|R]):- I > 0, I1 is I-1, replace(T, I1, X, R).
+
+%board_state(+Board, -State)
+board_state(Board, State):-
+    terminal_state(Board, State), !.
+board_state(_, b).
+
+% init_game_field(-GameField)
+init_game_field(GameField):- 
+    GameField = [_,_,_,_,_,_,_,_,_,_],
+    empty_board(EmptyBoard),
+    init_game_field(EmptyBoard, GameField), !.
+
+init_game_field(_, []):- !.
+init_game_field(EmptyBoard, [X|T]):-
+    X = EmptyBoard,
+    init_game_field(EmptyBoard, T), !.
+
+%%%%%%%%%%%%%%%%% Display boards %%%%%%%%%%%%%%%%%%
+/* Drawing the Tic-Tac-Board */
+print_tic_tac_toe_board([A1,A2,A3,A4,A5,A6,A7,A8,A9]) :-
+    print_board_line([A1, A2, A3]), nl,
+    print_line_separator,nl,
+    print_board_line([A4, A5, A6]),nl,
+    print_line_separator,nl,
+    print_board_line([A7, A8, A9]), nl, !.
+
+print_vertical_line:-
+    format('   |   |   ').
+    
+print_line_separator :-
+    format('---|---|---').
+
+print_board_line([A, B, C]) :-
+    printable_value(A, A1), !,
+    printable_value(B, B1), !,
+    printable_value(C, C1), !,
+    format(' ~w | ~w | ~w ', [A1, B1, C1]).
+
+printable_value(x, x).
+printable_value(o, o).
+printable_value(b, ' ').
+printable_value(draw, d).
+printable_value(V, V).
+
+/* Drawing the Ultimate Tic-Tac-Board */
+print_ultimate_board([B1,B2,B3,B4,B5,B6,B7,B8,B9,[G1, G2, G3, G4, G5, G6, G7, G8, G9]]) :-
+    print_boards([B1, B2, B3], [G1, G2, G3]), nl,
+	print_double_line_separator, nl,
+    
+    print_boards([B4, B5, B6], [G4, G5, G6]), nl,
+	print_double_line_separator, nl,
+    
+    print_boards([B7, B8, B9], [G7, G8, G9]), nl, !.
+
+print_boards(BoardLine, GlobalCells):-
+    print_boards(BoardLine, GlobalCells, 1).
+
+print_boards([[B11,B12,B13], [B21,B22,B23], [B31,B32,B33]],  [G1, G2, G3], 3):-
+    print_ultimate_board_line([B11,B12,B13], G1, 3), print_double_bar,
+    print_ultimate_board_line([B21,B22,B23], G2, 3), print_double_bar,
+    print_ultimate_board_line([B31,B32,B33], G3, 3), !.
+    
+print_boards([[B11,B12,B13|B1], [B21,B22,B23|B2], [B31,B32,B33|B3]], [G1, G2, G3], L):-
+    print_ultimate_board_line([B11,B12,B13], G1, L), print_double_bar,
+    print_ultimate_board_line([B21,B22,B23], G2, L), print_double_bar,
+    print_ultimate_board_line([B31,B32,B33], G3, L), nl,
+    
+    print_ultimate_line_separator(G1), print_double_bar, 
+    print_ultimate_line_separator(G2), print_double_bar,
+    print_ultimate_line_separator(G3), nl,
+	
+	L1 is L + 1,
+    
+    print_boards([B1, B2, B3], [G1, G2, G3], L1).
+
+% print_ultimate_board_line(+BoardLineCells, +GlobalCell, LineNumber)
+print_ultimate_board_line([A1,A2,A3], b, _):- 
+    print_board_line([A1,A2,A3]), !.
+
+print_ultimate_board_line(_, GlobalCell, 2):-
+    printable_value(GlobalCell, V),
+    string_upper(V, UpperChar),
+    format('     ~w     ', UpperChar), !.
+
+print_ultimate_board_line(_, _, _):- 
+    print_empty_line.
+
+% print_ultimate_line_separator(+GlobalCell)
+print_ultimate_line_separator(b):- print_line_separator, !.
+print_ultimate_line_separator(_):- print_empty_line.
+
+print_double_line_separator :-
+    format('═══════════════════════════════════════').
+
+print_empty_line:- format('           ').
+print_double_bar:- format(' ǁ ').
+
+%%%%%%%%%%%%%%%%%%% Heuristics %%%%%%%%%%%%%%%
+% weighted_sum(+List, +Weights, -Sum)
+weighted_sum([], [], 0):- !.
+weighted_sum([Head|Tail], [Weight|Weights], Sum):-
+    weighted_sum(Tail, Weights, Sum1), !,
+    Sum is Sum1 + Weight * Head.
+
+
+%terminal_state_value(+Player, +Winner, -Value)
+terminal_state_value(Player, Winner, 500):- Player = Winner, !.
+terminal_state_value(_, draw, 0):- !.
+terminal_state_value(_, _, -500).
+
+% eval(+Player, +Node, -Val)
+eval(Player, [_, GameField], Value):- 
+    eval_game_field(Player, GameField, Value), !.
+
+
+miniboard_weights([ 3, 1, 3,
+                    1, 5, 1,
+                    3, 1, 3]).
+
+global_board_weights([ 3, 1, 3,
+                       1, 5, 1,
+                       3, 1, 3]).
+
+% eval_cell(+Player, +CellValue, -Value)
+eval_cell(_, b, 0):- !.
+eval_cell(_, draw, 0.5):- !.
+eval_cell(Player, Player, 1):- !.
+eval_cell(_, V, -1):- cell_value(V), !.
+
+% eval_game_field(+Player, +GameField, -Value)
+eval_game_field(Player, GameField, Value):-
+    global_board_weights(GlobalWeights),
+    nth1(10, GameField, GlobalBoard),
+    eval_game_field(Player, GameField, GlobalBoard, Values),
+    weighted_sum(Values, GlobalWeights, Value).
+
+eval_game_field(_, _, [], []):- !.
+eval_game_field(Player, [Miniboard | Boards], [GlobalCell|Cells], [Value|Values]):-
+    eval_global_cell(Player, GlobalCell, Miniboard, Value),
+    eval_game_field(Player, Boards, Cells, Values), !.
+    
+% eval_global_cell(+Player, +GlobaCell, +Miniboard, -Value)
+eval_global_cell(Player, b, Miniboard, Value):-
+    eval_miniboard(Player, Miniboard, Value), !.
+
+% Since max miniboard's value is 9, a won global cell should be a bit
+% greater than 9, e.g. 10.
+eval_global_cell(Player, GlobaCell, _, Value):-
+    eval_cell(Player, GlobaCell, V),
+    Value is 10 * V , !.
+
+%eval_miniboard(+Player, +Board, -Value)
+eval_miniboard(Player, Board, Value):-
+    miniboard_weights(Weights),
+    map_cell_values(Player, Board, MappedValues),
+    weighted_sum(MappedValues, Weights, Value).
+
+map_cell_values(_, [], []):- !.
+map_cell_values(Player, [Cell|Cells], [NewCell|NewCells]):-
+    eval_cell(Player, Cell, NewCell),
+    map_cell_values(Player, Cells, NewCells), !.
+
+
+%%%%%%%%%%%%%%% Alphabeta %%%%%%%%%%%%%
+% Change player while traversing
+player_color(max, Player):- current_player(Player).
+player_color(min, Other):- 
+    current_player(Player),
+    other(Player, Other).
+
+swap_max_min(max, min).
+swap_max_min(min, max).
+
+% children(+Node, +Player, -Children)
+children([_, Board], Player, Children):-
+    findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
+
+% alphabeta(+MaxDepth, +Board, -BestMove)
+alphabeta(MaxDepth, Board, BestMove):-
+    alphabeta_step(max, MaxDepth, [nil, Board], -999999, 999999, [BestMove, _], _), !.
+
+% Chooses the best possible move for the current board.
+% minimax_step(+MinMax, +MaxDepth, + Node, +Alpha, +Beta, -BestNode, -BestValue)
+alphabeta_step(_, Depth, [_, Board], _, _, _, BestValue) :-
+    terminal_state(Board, Winner),
+    current_player(MaxPlayer),
+    terminal_state_value(MaxPlayer, Winner, Value), 
+    BestValue is Depth * Value, !.
+
+alphabeta_step(_, 0, Node, _, _, _, BestValue) :-
+    current_player(MaxPlayer),
+    eval(MaxPlayer, Node, BestValue), !.
+
+alphabeta_step(MinMax, Depth, Node, Alpha, Beta, BestNode, BestValue) :-
+    player_color(MinMax, Player),
+	children(Node, Player, Children),
+    NextDepth is Depth -1,
+    bounded_best_node(MinMax, NextDepth, Children, Alpha, Beta, BestNode, BestValue), !.
+
+% bounded_best_node(+MinMax, +MaxDepth, +NodeList, +Alpha, +Beta, -BestNode, -BestValue)
+bounded_best_node(MinMax, MaxDepth, [Node | NodeList], Alpha, Beta, BestNode, BestValue) :-    
+	swap_max_min(MinMax, Other),
+	alphabeta_step(Other, MaxDepth, Node, Alpha, Beta, _, BottomBestV),
+    next_if_good(MinMax, MaxDepth, NodeList, Alpha, Beta, Node, BottomBestV, BestNode, BestValue).
+
+% next_if_good(+MinMax, +MaxDepth, +NodeList, +Alpha, +Beta, +Node, +Value, -BestNode, -BestValue)
+next_if_good(_, _, [], _, _, Node, Value, Node, Value):- !.
+% if not good enough -> cutoff
+next_if_good(MinMax, _, _, Alpha, Beta, Node, Value, Node, Value):-
+	MinMax = max, Value >= Beta, !;
+    MinMax = min, Value =< Alpha, !.
+% otherwise go to the next node
+next_if_good(MinMax, MaxDepth, NodeList, Alpha, Beta, Node, Value, BestNode, BestValue):-
+	update_bounds(MinMax, Alpha, Beta, Value, NewAlpha, NewBeta),
+    bounded_best_node(MinMax, MaxDepth, NodeList, NewAlpha, NewBeta, CurrentBestN, CurrentBestV),
+    best_of(MinMax, Node, Value, CurrentBestN, CurrentBestV, BestNode, BestValue).
+
+%update_bounds(+MinMax, +Alpha, +Beta, +Value, -NewAlpha, -NewBeta)
+update_bounds(max, Alpha, Beta, Value, Value, Beta):-
+    Value >= Alpha, !.
+update_bounds(min, Alpha, Beta, Value, Alpha, Beta):-
+    Value =< Beta, !.
+update_bounds(_, Alpha, Beta, _, Alpha, Beta).
+
+best_of(MinMax, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
+	MinMax = max, ValueA >= ValueB, !;
+    MinMax = min, ValueA =< ValueB, !.
+best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
