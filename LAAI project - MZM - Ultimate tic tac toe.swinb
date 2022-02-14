@@ -26,6 +26,10 @@ current_player(Player):- b_getval(player, Player).
 game(tic_tac_toe).
 game(ultimate).
 
+% max_depth(+Game, -MaxDepth)
+max_depth(tic_tac_toe, 99).
+max_depth(ultimate, 4).
+
 init_board(tic_tac_toe, Board):- empty_board(Board), !.
 init_board(ultimate, GameField):- init_game_field(GameField), !.
 
@@ -48,31 +52,31 @@ play(Game, Board, _):-
     show_win_message(Winner), !.
 
 play(Game, Board, Player):-
-    write('Player\'s turn: '), write(Player), nl,
     print_board(Game, Board), nl,
+    write('Player\'s turn: '), write(Player), nl,
     set_current_player(Player),
     get_player_type(Player, PlayerType),
     
-    play_as(PlayerType, Board, Move),
+    play_as(PlayerType, Game, Board, Move), !,
   	move(Board, Player, Move, NewBoard),
     
     other(Player, OtherPlayer),
     play(Game, NewBoard, OtherPlayer).
 
-% play_as(+PlayerType, +Board, -Move)
-play_as(human, Board, Move):-
-    read(InputMove),
-    validate_move(Board, InputMove, Move).
+% play_as(+PlayerType, +Game, +Board, -Move)
+play_as(human, _, Board, Move):-
+    read_valid_move(Board, Move).
+play_as(ai, Game, Board, Move):-
+    max_depth(Game, MaxDepth), !,
+    alphabeta(MaxDepth, Board, Move).
 
-play_as(ai, Board, Move):-
-    alphabeta(Board, Move).
-
-% validate_move(+Board, +Move, -ValidMove)
-validate_move(Board, Move, Move):-
-    move(Board, _, Move, _),!.
-validate_move(Board, _, ValidMove):-
+% read_valid_move(+Board, -ValidMove)
+read_valid_move(Board, ValidMove):-    
+    read(ValidMove),    
+    move(Board, _, ValidMove, _),!.
+read_valid_move(Board, ValidMove):- 
     write('Illegal move !'),
-    play_as(human, Board, ValidMove).
+    read_valid_move(Board, ValidMove), !.
 
 explain_game(tic_tac_toe) :-
   write('You play by entering integer positions.'),nl,
@@ -321,19 +325,77 @@ terminal_state(GF, W).
 </div>
 
 <div class="nb-cell markdown" name="md4">
-## Evaluation function
+## Heurisitc function
 </div>
 
 <div class="nb-cell program" data-background="true" name="p4">
+% weighted_sum(+List, +Weights, -Sum)
+weighted_sum([], [], 0):- !.
+weighted_sum([Head|Tail], [Weight|Weights], Sum):-
+    weighted_sum(Tail, Weights, Sum1), !,
+    Sum is Sum1 + Weight * Head.
+
+
+%terminal_state_value(+Player, +Winner, -Value)
+terminal_state_value(Player, Winner, 500):- Player = Winner, !.
+terminal_state_value(_, draw, 0):- !.
+terminal_state_value(_, _, -500).
+
 % eval(+Player, +Node, -Val)
-eval(Player, [_, Board], 100):- terminal_state(Board, P), P = Player, !.
-eval(_, [_, Board], 0):- terminal_state(Board, P), P = draw, !.
-eval(_, [_, Board], -100):- terminal_state(Board, _).
-eval(_,_,0).
+eval(Player, [_, GameField], Value):- 
+    eval_game_field(Player, GameField, Value), !.
+
+
+miniboard_weights([ 3, 1, 3,
+                    1, 5, 1,
+                    3, 1, 3]).
+
+global_board_weights([ 3, 1, 3,
+                       1, 5, 1,
+                       3, 1, 3]).
+
+% eval_cell(+Player, +CellValue, -Value)
+eval_cell(_, b, 0):- !.
+eval_cell(_, draw, 0.5):- !.
+eval_cell(Player, Player, 1):- !.
+eval_cell(_, V, -1):- cell_value(V), !.
+
+% eval_game_field(+Player, +GameField, -Value)
+eval_game_field(Player, GameField, Value):-
+    global_board_weights(GlobalWeights),
+    nth1(10, GameField, GlobalBoard),
+    eval_game_field(Player, GameField, GlobalBoard, Values),
+    weighted_sum(Values, GlobalWeights, Value).
+
+eval_game_field(_, _, [], []):- !.
+eval_game_field(Player, [Miniboard | Boards], [GlobalCell|Cells], [Value|Values]):-
+    eval_global_cell(Player, GlobalCell, Miniboard, Value),
+    eval_game_field(Player, Boards, Cells, Values), !.
+    
+% eval_global_cell(+Player, +GlobaCell, +Miniboard, -Value)
+eval_global_cell(Player, b, Miniboard, Value):-
+    eval_miniboard(Player, Miniboard, Value), !.
+
+% Since max miniboard's value is 9, a won global cell should be a bit
+% greater than 9, e.g. 10.
+eval_global_cell(Player, GlobaCell, _, Value):-
+    eval_cell(Player, GlobaCell, V),
+    Value is 10 * V , !.
+
+%eval_miniboard(+Player, +Board, -Value)
+eval_miniboard(Player, Board, Value):-
+    miniboard_weights(Weights),
+    map_cell_values(Player, Board, MappedValues),
+    weighted_sum(MappedValues, Weights, Value).
+
+map_cell_values(_, [], []):- !.
+map_cell_values(Player, [Cell|Cells], [NewCell|NewCells]):-
+    eval_cell(Player, Cell, NewCell),
+    map_cell_values(Player, Cells, NewCells), !.
 </div>
 
 <div class="nb-cell query" name="q3">
-Player = x,
+Player = o,
 Board =  [o, x, o,
           b, x, x,
           x, x, b],
@@ -405,24 +467,25 @@ player_color(min, Other):-
 swap_max_min(max, min).
 swap_max_min(min, max).
 
-max_depth(5).
-
 % children(+Node, +Player, -Children)
 children([_, Board], Player, Children):-
     findall([Move, NewBoard], move(Board, Player, Move, NewBoard), Children).
 
-% alphabeta(+Board, -BestMove)
-alphabeta(Board, BestMove):-
-    max_depth(D),
-    alphabeta_step(max, D, [nil, Board], -1000, +1000, [BestMove, _], _), !.
+% alphabeta(+MaxDepth, +Board, -BestMove)
+alphabeta(MaxDepth, Board, BestMove):-
+    alphabeta_step(max, MaxDepth, [nil, Board], -999999, 999999, [BestMove, _], _), !.
 
 % Chooses the best possible move for the current board.
 % minimax_step(+MinMax, +MaxDepth, + Node, +Alpha, +Beta, -BestNode, -BestValue)
-alphabeta_step(_, Depth, Node, _, _, _, BestValue) :-
-    leaf_node(Depth, Node), !,
+alphabeta_step(_, Depth, [_, Board], _, _, _, BestValue) :-
+    terminal_state(Board, Winner),
     current_player(MaxPlayer),
-    eval(MaxPlayer, Node, Value), !,
-    BestValue is Depth * Value.
+    terminal_state_value(MaxPlayer, Winner, Value), 
+    BestValue is Depth * Value, !.
+
+alphabeta_step(_, 0, Node, _, _, _, BestValue) :-
+    current_player(MaxPlayer),
+    eval(MaxPlayer, Node, BestValue), !.
 
 alphabeta_step(MinMax, Depth, Node, Alpha, Beta, BestNode, BestValue) :-
     player_color(MinMax, Player),
@@ -459,26 +522,21 @@ best_of(MinMax, NodeA, ValueA, _, ValueB, NodeA, ValueA) :-
 	MinMax = max, ValueA &gt;= ValueB, !;
     MinMax = min, ValueA =&lt; ValueB, !.
 best_of(_, _, _, NodeB, ValueB, NodeB, ValueB).
-
-% leaf_node(+Depth, +Node).
-% It's a leaf node if depth = 0 or the game is over.
-leaf_node(0, _):- !.
-leaf_node(_, [_, Board]):- terminal_state(Board, _).
 </div>
 
 <div class="nb-cell query" name="q4">
 Player = x,
 GameField = [B1,B2,B3,B4,B5,B6,B7,B8,B9,G],
-Board = [ x,o,x,
-          o,b,x,
-          b,o,b],
+Board = [ x,x,o,
+          x,b,b,
+          b,b,b],
 set_current_player(Player),
 %init_game_field(, GameField),
 %replace(GameField, 10,  [x,o,x,
 %                         o,b,x,
 %                         x,o,o], GF),
 %trace,
-alphabeta(Board, M)
+alphabeta(99, Board, M)
 </div>
 
 </div>
