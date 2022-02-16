@@ -122,9 +122,9 @@ terminal_state(Board, Player):- board(Board), player(Player), win(Board, Player)
 terminal_state(Board, draw):- board(Board), nomoves(Board), !.
 
 % Winning conditions:
-win(Board, Player) :- rowwin(Board, Player), !.
-win(Board, Player) :- colwin(Board, Player), !.
-win(Board, Player) :- diagwin(Board, Player), !.
+win(Board, Player) :- rowwin(Board, Player).
+win(Board, Player) :- colwin(Board, Player).
+win(Board, Player) :- diagwin(Board, Player).
 
 rowwin(Board, Player) :- Board = [Player,Player,Player,_,_,_,_,_,_].
 rowwin(Board, Player) :- Board = [_,_,_,Player,Player,Player,_,_,_].
